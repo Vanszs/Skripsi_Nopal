@@ -186,10 +186,20 @@ class FeatureEngineer:
         df['unique_receivers'] = df.groupby('from')['to'].transform('nunique')
         
         # Rolling 24h transaction count
-        df = df.sort_values(['from', 'timestamp'])
-        df['tx_24h_window'] = df.groupby('from')['timestamp'].transform(
-            lambda x: x.rolling('24H').count()
-        )
+        df = df.sort_values(['from', 'timestamp']).reset_index(drop=True)
+        
+        # Use count instead of rolling window (simpler approach)
+        # For each transaction, count how many tx from same address in last 24h
+        def count_tx_24h(group):
+            counts = []
+            for idx, row in group.iterrows():
+                mask = (group['timestamp'] >= row['timestamp'] - pd.Timedelta(hours=24)) & \
+                       (group['timestamp'] <= row['timestamp'])
+                counts.append(mask.sum())
+            return pd.Series(counts, index=group.index)
+        
+        tx_24h_results = df.groupby('from', group_keys=False).apply(count_tx_24h)
+        df['tx_24h_window'] = tx_24h_results.values
         
         # Success rate (assuming txreceipt_status or isError column)
         if 'isError' in df.columns:
@@ -200,9 +210,16 @@ class FeatureEngineer:
             df['tx_success_rate'] = 1.0  # Assume all successful if no error data
         
         # Burst activity detection (>10 tx in 1 hour)
-        df['tx_1h_window'] = df.groupby('from')['timestamp'].transform(
-            lambda x: x.rolling('1H').count()
-        )
+        def count_tx_1h(group):
+            counts = []
+            for idx, row in group.iterrows():
+                mask = (group['timestamp'] >= row['timestamp'] - pd.Timedelta(hours=1)) & \
+                       (group['timestamp'] <= row['timestamp'])
+                counts.append(mask.sum())
+            return pd.Series(counts, index=group.index)
+        
+        tx_1h_results = df.groupby('from', group_keys=False).apply(count_tx_1h)
+        df['tx_1h_window'] = tx_1h_results.values
         df['burst_activity_flag'] = (df['tx_1h_window'] > 10).astype(int)
         
         self.feature_names.extend([

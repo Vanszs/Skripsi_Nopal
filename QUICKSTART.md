@@ -11,6 +11,8 @@ Panduan cepat untuk menjalankan proyek deteksi fraud pada Ethereum Mainnet.
 1. **Python 3.8+** installed
 2. **Alchemy API Key** (get from https://www.alchemy.com/)
 3. **Etherscan API Key** (get from https://etherscan.io/apis)
+   - Proyek ini menggunakan Etherscan API V2 yang memerlukan parameter `chainid`
+   - Free tier: 5 requests/second
 4. **Git** (optional, for cloning)
 
 ---

@@ -33,7 +33,8 @@ class EthereumDataFetcher:
     def __init__(self):
         """Initialize Web3 connection and API endpoints."""
         self.w3 = Web3(Web3.HTTPProvider(MAINNET_RPC_URL))
-        self.etherscan_api = "https://api.etherscan.io/api"
+        self.etherscan_api = "https://api.etherscan.io/v2/api"
+        self.chain_id = 1  # Ethereum Mainnet
         self.cache_file = RAW_DATA_DIR / "tx_cache.pkl"
         
         # Validate connection
@@ -74,7 +75,7 @@ class EthereumDataFetcher:
         Etherscan API: https://docs.etherscan.io/api-endpoints/accounts
         """
         url = (
-            f"{self.etherscan_api}?module=account&action=txlist"
+            f"{self.etherscan_api}?chainid={self.chain_id}&module=account&action=txlist"
             f"&address={address}&startblock={start_block}&endblock={end_block}"
             f"&sort=asc&apikey={ETHERSCAN_API_KEY}"
         )
@@ -93,12 +94,12 @@ class EthereumDataFetcher:
                 response.raise_for_status()
                 data = response.json()
                 
-                if data.get('status') == '1':
+                if data.get('status') == '1' and data.get('result'):
                     return data['result']
                 elif data.get('message') == 'No transactions found':
                     return []
                 else:
-                    logger.error(f"API error: {data.get('message')}")
+                    logger.error(f"API error: {data.get('message', 'Unknown error')}")
                     return []
                     
             except requests.exceptions.RequestException as e:
@@ -263,10 +264,11 @@ def main():
     """Main execution function for testing."""
     fetcher = EthereumDataFetcher()
     
-    # Example: Fetch transactions for a few addresses
+    # Example: Fetch transactions for well-known addresses with activity
+    # Using Vitalik's address and other known active addresses
     sample_addresses = [
-        "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",  # Example address
-        # Add more addresses
+        "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",  # Vitalik Buterin
+        "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",  # Known exchange address
     ]
     
     # Fetch transactions
@@ -274,6 +276,13 @@ def main():
         addresses=sample_addresses,
         use_cache=True
     )
+    
+    if df is None or len(df) == 0:
+        logger.error("No transactions fetched! Check:")
+        logger.error("  1. RPC URL is valid and complete")
+        logger.error("  2. Etherscan API key is valid")
+        logger.error("  3. Addresses have transaction history")
+        return None
     
     # Get known scam addresses
     scam_addresses = fetcher.fetch_known_scam_addresses()

@@ -58,8 +58,10 @@ N_SPLITS_CV = 5
 LOG_TRANSFORM_FEATURES = ["value_eth", "gas_price", "gas_used"]
 
 # Known Scam Address Sources
+# Etherscan API V2 requires chainid parameter
+ETHERSCAN_CHAIN_ID = 1  # Ethereum Mainnet
 SCAM_ADDRESS_SOURCES = [
-    "https://api.etherscan.io/api?module=account&action=tokentx&contractaddress=0x",
+    f"https://api.etherscan.io/v2/api?chainid={ETHERSCAN_CHAIN_ID}&module=account&action=tokentx&contractaddress=0x",
     "https://xblock.pro/api/phishing-addresses",
 ]
 

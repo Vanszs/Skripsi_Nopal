@@ -51,8 +51,9 @@ w3 = Web3(Web3.HTTPProvider(MAINNET_RPC_URL))
 def fetch_tx_batch(address, start_block, end_block):
     """Fetch with exponential backoff on rate limit"""
     try:
+        # Etherscan API V2 requires chainid parameter (1 for Ethereum Mainnet)
         response = requests.get(
-            f"https://api.etherscan.io/api?module=account&action=txlist"
+            f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist"
             f"&address={address}&startblock={start_block}&endblock={end_block}"
             f"&apikey={ETHERSCAN_API_KEY}"
         )
@@ -295,7 +296,7 @@ df['gas_price_ratio'] = df['gasPrice'] / df.groupby('blockNumber')['gasPrice'].t
 
 ### Phishing Address Labeling (Mainnet)
 Pull known scam addresses from:
-- Etherscan labeled addresses API: `https://api.etherscan.io/api?module=account&action=txlist&address={scam_address}`
+- Etherscan labeled addresses API: `https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={scam_address}`
 - XBlock Phishing dataset (https://xblock.pro)
 - EtherScamDB (backup source)
 - Chainabuse.com reports
