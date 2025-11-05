@@ -41,7 +41,7 @@ class EthereumDataFetcher:
         if not self.w3.is_connected():
             raise ConnectionError("Failed to connect to Ethereum mainnet RPC")
         
-        logger.info("✅ Connected to Ethereum Mainnet")
+        logger.info("[OK] Connected to Ethereum Mainnet")
         logger.info(f"   Current block: {self.w3.eth.block_number}")
     
     def fetch_tx_batch(
@@ -220,7 +220,7 @@ class EthereumDataFetcher:
         # Save to cache
         save_pickle(df, self.cache_file)
         
-        logger.info(f"✅ Fetched {len(df)} transactions")
+        logger.info(f"[OK] Fetched {len(df)} transactions")
         logger.info(f"   Date range: {df['timestamp'].min()} to {df['timestamp'].max()}")
         
         return df
@@ -293,7 +293,7 @@ def main():
     # Save raw data
     output_file = RAW_DATA_DIR / "transactions_raw.csv"
     df.to_csv(output_file, index=False)
-    logger.info(f"✅ Saved to {output_file}")
+    logger.info(f"[OK] Saved to {output_file}")
     
     return df
 

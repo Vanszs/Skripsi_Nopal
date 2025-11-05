@@ -7,6 +7,11 @@ import argparse
 import sys
 from pathlib import Path
 
+# Fix Windows console encoding for emoji support
+if sys.platform == 'win32':
+    import codecs
+    sys.stdout.reconfigure(encoding='utf-8')
+
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -67,7 +72,7 @@ def fetch_data_stage(sample_addresses: Optional[List[str]] = None):
     # Save raw data
     output_file = RAW_DATA_DIR / "transactions_raw.csv"
     df.to_csv(output_file, index=False)
-    logger.info(f"✅ Stage 1 complete: {len(df)} transactions saved to {output_file}")
+    logger.info(f"[OK] Stage 1 complete: {len(df)} transactions saved to {output_file}")
     
     return df
 
@@ -111,7 +116,7 @@ def feature_engineering_stage(include_graph_features: bool = True):
     # Save processed data
     output_file = PROCESSED_DATA_DIR / "features.csv"
     df_features.to_csv(output_file, index=False)
-    logger.info(f"✅ Stage 2 complete: {df_features.shape[1]} features saved to {output_file}")
+    logger.info(f"[OK] Stage 2 complete: {df_features.shape[1]} features saved to {output_file}")
     
     return df_features
 
@@ -337,6 +342,12 @@ Examples:
     try:
         if args.fetch_data:
             fetch_data_stage()
+        
+        # Check if feature engineering is needed before training
+        features_file = PROCESSED_DATA_DIR / "features.csv"
+        if args.train and not features_file.exists():
+            logger.info("Features not found, running feature engineering first...")
+            args.feature_engineering = True
         
         if args.feature_engineering:
             feature_engineering_stage(include_graph_features=not args.no_graph_features)

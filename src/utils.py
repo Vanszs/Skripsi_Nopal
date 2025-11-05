@@ -230,6 +230,10 @@ def reduce_mem_usage(df: pd.DataFrame) -> pd.DataFrame:
     for col in df.columns:
         col_type = df[col].dtype
         
+        # Skip datetime columns
+        if pd.api.types.is_datetime64_any_dtype(col_type):
+            continue
+            
         if col_type != object:
             c_min = df[col].min()
             c_max = df[col].max()
