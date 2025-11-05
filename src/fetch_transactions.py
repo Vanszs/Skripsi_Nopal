@@ -1,5 +1,5 @@
 """
-Fetch transactions from Ethereum Mainnet using Web3.py and Etherscan API.
+Fetch transactions from blockchain networks (BSC, opBNB, Ethereum) using Web3.py and Block Explorer APIs.
 Implements rate limiting, caching, and exponential backoff for robust data retrieval.
 """
 
@@ -12,12 +12,16 @@ from tqdm import tqdm
 
 from config import (
     MAINNET_RPC_URL,
-    ETHERSCAN_API_KEY,
+    EXPLORER_API_URL,
+    EXPLORER_API_KEY,
     RAW_DATA_DIR,
     ETHERSCAN_MAX_REQUESTS_PER_SEC,
     ETHERSCAN_BACKOFF_TIME,
     START_BLOCK,
     END_BLOCK,
+    ACTIVE_NETWORK,
+    CURRENT_NETWORK,
+    CHAIN_ID,
 )
 from utils import setup_logger, save_pickle, load_pickle
 
@@ -26,22 +30,28 @@ logger = setup_logger(__name__)
 
 class EthereumDataFetcher:
     """
-    Fetcher for Ethereum mainnet transaction data.
-    Uses Etherscan API for historical data and Web3.py for real-time data.
+    Fetcher for blockchain transaction data.
+    Supports BSC, opBNB, and Ethereum Mainnet.
+    Uses Block Explorer APIs for historical data and Web3.py for real-time data.
     """
     
     def __init__(self):
         """Initialize Web3 connection and API endpoints."""
         self.w3 = Web3(Web3.HTTPProvider(MAINNET_RPC_URL))
-        self.etherscan_api = "https://api.etherscan.io/v2/api"
-        self.chain_id = 1  # Ethereum Mainnet
-        self.cache_file = RAW_DATA_DIR / "tx_cache.pkl"
+        self.explorer_api = EXPLORER_API_URL
+        self.api_key = EXPLORER_API_KEY
+        self.chain_id = CHAIN_ID
+        self.network_name = CURRENT_NETWORK['name']
+        self.native_token = CURRENT_NETWORK['native_token']
+        self.cache_file = RAW_DATA_DIR / f"tx_cache_{ACTIVE_NETWORK.lower()}.pkl"
         
         # Validate connection
         if not self.w3.is_connected():
-            raise ConnectionError("Failed to connect to Ethereum mainnet RPC")
+            raise ConnectionError(f"Failed to connect to {self.network_name} RPC")
         
-        logger.info("[OK] Connected to Ethereum Mainnet")
+        logger.info(f"[OK] Connected to {self.network_name}")
+        logger.info(f"   Chain ID: {self.chain_id}")
+        logger.info(f"   Native Token: {self.native_token}")
         logger.info(f"   Current block: {self.w3.eth.block_number}")
     
     def fetch_tx_batch(
@@ -57,7 +67,7 @@ class EthereumDataFetcher:
         Parameters
         ----------
         address : str
-            Ethereum address (0x prefixed)
+            Blockchain address (0x prefixed)
         start_block : int
             Starting block number
         end_block : int
@@ -72,13 +82,22 @@ class EthereumDataFetcher:
         
         References
         ----------
+        BscScan API: https://docs.bscscan.com/api-endpoints/accounts
         Etherscan API: https://docs.etherscan.io/api-endpoints/accounts
         """
-        url = (
-            f"{self.etherscan_api}?chainid={self.chain_id}&module=account&action=txlist"
-            f"&address={address}&startblock={start_block}&endblock={end_block}"
-            f"&sort=asc&apikey={ETHERSCAN_API_KEY}"
-        )
+        # Build API URL (BSC/opBNB uses different format than Ethereum)
+        if ACTIVE_NETWORK in ["BSC", "OPBNB"]:
+            url = (
+                f"{self.explorer_api}?module=account&action=txlist"
+                f"&address={address}&startblock={start_block}&endblock={end_block}"
+                f"&sort=asc&apikey={self.api_key}"
+            )
+        else:  # Ethereum
+            url = (
+                f"{self.explorer_api}?chainid={self.chain_id}&module=account&action=txlist"
+                f"&address={address}&startblock={start_block}&endblock={end_block}"
+                f"&sort=asc&apikey={self.api_key}"
+            )
         
         for attempt in range(max_retries):
             try:

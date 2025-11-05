@@ -98,13 +98,23 @@ class ModelEvaluator:
         fpr, tpr, roc_thresholds = roc_curve(y_test, y_pred_proba)
         self.results['roc_auc'] = auc(fpr, tpr)
         
-        # Confusion matrix
-        cm = confusion_matrix(y_test, y_pred)
+        # Confusion matrix (handle single-class edge case)
+        cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
         self.results['confusion_matrix'] = cm.tolist()
-        self.results['tn'] = int(cm[0, 0])
-        self.results['fp'] = int(cm[0, 1])
-        self.results['fn'] = int(cm[1, 0])
-        self.results['tp'] = int(cm[1, 1])
+        
+        # Handle edge case where matrix might be 1x1 (single class)
+        if cm.shape[0] >= 2 and cm.shape[1] >= 2:
+            self.results['tn'] = int(cm[0, 0])
+            self.results['fp'] = int(cm[0, 1])
+            self.results['fn'] = int(cm[1, 0])
+            self.results['tp'] = int(cm[1, 1])
+        else:
+            # Single class case - all negative or all positive
+            logger.warning("Single class detected in predictions. Setting confusion matrix values.")
+            self.results['tn'] = int(cm[0, 0]) if len(y_test[y_test == 0]) > 0 else 0
+            self.results['fp'] = 0
+            self.results['fn'] = 0
+            self.results['tp'] = 0
         
         # Print results
         print("\n" + "="*50)
@@ -122,7 +132,11 @@ class ModelEvaluator:
         print(f"  FN: {self.results['fn']}  TP: {self.results['tp']}")
         
         print(f"\nClassification Report:")
-        print(classification_report(y_test, y_pred, target_names=['Normal', 'Fraud']))
+        try:
+            print(classification_report(y_test, y_pred, target_names=['Normal', 'Fraud'], labels=[0, 1], zero_division=0))
+        except ValueError as e:
+            logger.warning(f"Classification report failed: {e}")
+            print("  [Skipped - insufficient classes in predictions]")
         
         logger.info("✅ Evaluation complete")
         

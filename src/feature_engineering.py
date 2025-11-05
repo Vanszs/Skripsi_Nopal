@@ -263,6 +263,18 @@ class FeatureEngineer:
         # Remove infinite values
         df = df.replace([np.inf, -np.inf], 0)
         
+        # Drop non-numeric columns (except labels and metadata)
+        # Keep only: numeric features + is_fraud + timestamp + hash (for tracking)
+        non_feature_cols = ['hash', 'from', 'to', 'timestamp', 'is_fraud']
+        
+        # Identify object/string columns to drop
+        object_cols = df.select_dtypes(include=['object']).columns.tolist()
+        cols_to_drop = [col for col in object_cols if col not in non_feature_cols]
+        
+        if cols_to_drop:
+            logger.info(f"   Dropping {len(cols_to_drop)} non-numeric columns: {cols_to_drop}")
+            df = df.drop(columns=cols_to_drop)
+        
         # Memory optimization
         df = reduce_mem_usage(df)
         
