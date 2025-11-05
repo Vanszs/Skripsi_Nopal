@@ -1,0 +1,46 @@
+# Environment
+.env
+venv/
+env/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Data files
+data/raw/*.csv
+data/raw/*.pkl
+data/processed/*.csv
+data/processed/*.pkl
+
+# Models
+models/*.json
+models/*.pkl
+models/*.joblib
+
+# Logs
+logs/*.log
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keep directory structure
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!models/.gitkeep
+!logs/.gitkeep
