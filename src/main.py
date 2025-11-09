@@ -15,9 +15,12 @@ if sys.platform == 'win32':
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from config import RAW_DATA_DIR, PROCESSED_DATA_DIR, MODEL_DIR, LOG_DIR, validate_config
+from config import (
+    RAW_DATA_DIR, PROCESSED_DATA_DIR, MODEL_DIR, LOG_DIR, 
+    validate_config, TARGET_TX_COUNT, MAX_BLOCKS_TO_SCAN
+)
 from utils import setup_logger
-from fetch_transactions import EthereumDataFetcher
+from fetch_transactions import OpBNBDataFetcher
 from feature_engineering import FeatureEngineer
 from network_graph import TransactionGraphAnalyzer
 from model_train import FraudDetectionTrainer
@@ -29,50 +32,73 @@ logger = setup_logger(__name__)
 
 from typing import List, Optional
 
-def fetch_data_stage(sample_addresses: Optional[List[str]] = None):
+def fetch_data_stage(
+    mode: str = "snapshot",
+    target_count: int = TARGET_TX_COUNT,
+    sample_addresses: Optional[List[str]] = None
+):
     """
-    Stage 1: Fetch transaction data from Ethereum mainnet.
+    Stage 1: Fetch transaction data from opBNB mainnet.
     
     Parameters
     ----------
+    mode : str
+        Fetch mode: 'snapshot' (recent tx), 'blocks', or 'addresses'
+    target_count : int
+        Target number of transactions for snapshot mode
     sample_addresses : list, optional
-        List of addresses to fetch (uses sample if None)
+        List of addresses to fetch (for addresses mode)
     """
     logger.info("\n" + "="*60)
-    logger.info("STAGE 1: DATA FETCHING")
+    logger.info("STAGE 1: DATA FETCHING (opBNB Mainnet)")
     logger.info("="*60)
     
-    fetcher = EthereumDataFetcher()
+    fetcher = OpBNBDataFetcher()
     
-    # Use sample addresses if none provided
-    if sample_addresses is None:
-        sample_addresses = [
-            "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",  # Beacon deposit contract
-            "0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8",  # Binance
-            # Add more known addresses
-        ]
-        logger.info(f"Using {len(sample_addresses)} sample addresses")
+    # Mode selection
+    if mode == "snapshot":
+        logger.info(f"Mode: Snapshot (fetching last {target_count:,} transactions)")
+        df = fetcher.fetch_recent_transactions_snapshot(
+            target_count=target_count,
+            max_blocks=MAX_BLOCKS_TO_SCAN
+        )
     
-    # Fetch transactions
-    df = fetcher.fetch_transactions_for_addresses(
-        addresses=sample_addresses,
-        use_cache=True
-    )
+    elif mode == "addresses":
+        # Use sample addresses if none provided
+        if sample_addresses is None:
+            sample_addresses = [
+                "0x4200000000000000000000000000000000000006",  # WBNB on opBNB
+                "0x4200000000000000000000000000000000000010",  # Gas Price Oracle
+                "0x0000000000000000000000000000000000001000",  # System contract
+            ]
+            logger.info(f"Using {len(sample_addresses)} sample addresses")
+        
+        df = fetcher.fetch_transactions_for_addresses(
+            addresses=sample_addresses,
+            use_cache=True
+        )
     
-    if df.empty:
+    else:
+        logger.error(f"Unknown mode: {mode}")
+        return None
+    
+    if df is None or df.empty:
         logger.error("No transactions fetched!")
         return None
     
-    # Get known scam addresses
+    # Get known scam addresses and label
     scam_addresses = fetcher.fetch_known_scam_addresses()
-    
-    # Label transactions
-    df = fetcher.label_scam_transactions(df, scam_addresses)
+    df = fetcher.label_scam_transactions(
+        df, 
+        scam_addresses,
+        use_synthetic=True,  # Enable synthetic labels for research
+        contamination=0.05   # 5% fraud rate
+    )
     
     # Save raw data
     output_file = RAW_DATA_DIR / "transactions_raw.csv"
     df.to_csv(output_file, index=False)
-    logger.info(f"[OK] Stage 1 complete: {len(df)} transactions saved to {output_file}")
+    logger.info(f"[OK] Stage 1 complete: {len(df):,} transactions saved to {output_file}")
     
     return df
 
@@ -287,18 +313,27 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Run full pipeline
-  python src/main.py --fetch-data --feature-engineering --train --explain --evaluate
+  # Run full pipeline (recommended for first run)
+  python src/main.py --full-pipeline
+  
+  # Run with custom snapshot size
+  python src/main.py --fetch-data --fetch-mode snapshot --target-count 10000
   
   # Run specific stages
   python src/main.py --fetch-data
+  python src/main.py --feature-engineering
   python src/main.py --train --time-series-cv
   python src/main.py --explain --evaluate
         """
     )
     
     parser.add_argument('--fetch-data', action='store_true',
-                       help='Fetch transaction data from Ethereum mainnet')
+                       help='Fetch transaction data from opBNB mainnet')
+    parser.add_argument('--fetch-mode', type=str, default='snapshot',
+                       choices=['snapshot', 'blocks', 'addresses'],
+                       help='Data fetching mode (default: snapshot)')
+    parser.add_argument('--target-count', type=int, default=TARGET_TX_COUNT,
+                       help=f'Target tx count for snapshot mode (default: {TARGET_TX_COUNT})')
     parser.add_argument('--feature-engineering', action='store_true',
                        help='Extract features from raw transactions')
     parser.add_argument('--no-graph-features', action='store_true',
@@ -326,8 +361,9 @@ Examples:
     
     # Banner
     print("\n" + "="*60)
-    print("  ETHEREUM FRAUD DETECTION SYSTEM")
+    print("  opBNB FRAUD DETECTION SYSTEM")
     print("  XGBoost + SHAP + Network Graph Analysis")
+    print("  Network: opBNB Mainnet (Chain ID: 204)")
     print("="*60 + "\n")
     
     # Run stages based on arguments
@@ -341,7 +377,10 @@ Examples:
     
     try:
         if args.fetch_data:
-            fetch_data_stage()
+            fetch_data_stage(
+                mode=args.fetch_mode,
+                target_count=args.target_count
+            )
         
         # Check if feature engineering is needed before training
         features_file = PROCESSED_DATA_DIR / "features.csv"

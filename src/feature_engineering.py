@@ -100,8 +100,14 @@ class FeatureEngineer:
         # Log transform (handles zeros)
         df['log_value'] = np.log1p(df['value_eth'])
         
-        # Value to gas ratio
-        df['gas_cost_eth'] = df['gasUsed'] * df['gasPrice'] / 1e18
+        # Value to gas ratio (use 'gas' limit if 'gasUsed' not available)
+        if 'gasUsed' in df.columns:
+            df['gas_cost_eth'] = df['gasUsed'] * df['gasPrice'] / 1e18
+        else:
+            # Estimate: assume 21000 gas for simple transfers if gasUsed missing
+            df['gas_cost_eth'] = df['gas'] * df['gasPrice'] / 1e18
+            logger.info("   Note: Using 'gas' limit (gasUsed not available)")
+        
         df['value_to_gas_ratio'] = df['value_eth'] / (df['gas_cost_eth'] + 1e-10)
         
         # Zero value flag
@@ -149,14 +155,23 @@ class FeatureEngineer:
         df['block_median_gas'] = df.groupby('blockNumber')['gas_price_gwei'].transform('median')
         df['gas_price_ratio'] = df['gas_price_gwei'] / (df['block_median_gas'] + 1e-10)
         
-        # Gas efficiency (used vs limit)
-        df['gas_efficiency'] = df['gasUsed'] / (df['gas'] + 1)
+        # Gas efficiency (used vs limit) - handle missing gasUsed
+        if 'gasUsed' in df.columns:
+            df['gas_efficiency'] = df['gasUsed'] / (df['gas'] + 1)
+            self.feature_names.extend([
+                'gas_price_gwei', 'gasUsed', 'gas_price_ratio', 'gas_efficiency'
+            ])
+            n_features = 4
+        else:
+            # Skip gas_efficiency if gasUsed not available
+            df['gas_efficiency'] = 0.5  # Default estimate
+            self.feature_names.extend([
+                'gas_price_gwei', 'gas_price_ratio', 'gas_efficiency'
+            ])
+            n_features = 3
+            logger.info("   Note: gasUsed not available, using gas limit estimates")
         
-        self.feature_names.extend([
-            'gas_price_gwei', 'gasUsed', 'gas_price_ratio', 'gas_efficiency'
-        ])
-        
-        logger.info(f"   Added {4} gas features")
+        logger.info(f"   Added {n_features} gas features")
         return df
     
     def extract_account_behavior_features(self, df: pd.DataFrame) -> pd.DataFrame:

@@ -1,7 +1,6 @@
 """
-Configuration loader for blockchain fraud detection system.
-Supports multiple networks: BSC, opBNB, Ethereum Mainnet.
-Loads environment variables and provides centralized config access.
+Configuration loader for opBNB fraud detection system.
+opBNB-only configuration for transaction fraud detection.
 """
 
 import os
@@ -12,54 +11,22 @@ from pathlib import Path
 load_dotenv()
 
 # ============================================================
-# NETWORK CONFIGURATION
+# opBNB NETWORK CONFIGURATION
 # ============================================================
 
-# Active Network (BSC, OPBNB, or ETH)
-ACTIVE_NETWORK = os.getenv("ACTIVE_NETWORK", "BSC").upper()
-
-# Network-specific RPC URLs
-BSC_RPC_URL = os.getenv("BSC_RPC_URL")
+# opBNB Mainnet Configuration
 OPBNB_RPC_URL = os.getenv("OPBNB_RPC_URL")
-ETH_MAINNET_RPC_URL = os.getenv("ETH_MAINNET_RPC_URL")
+OPBNB_API_KEY = os.getenv("OPBNB_API_KEY")
 
-# Network mapping
-NETWORK_CONFIG = {
-    "BSC": {
-        "rpc_url": BSC_RPC_URL,
-        "explorer_api": "https://api.bscscan.com/api",
-        "api_key": os.getenv("BSCSCAN_API_KEY"),
-        "chain_id": 56,
-        "name": "BNB Smart Chain",
-        "native_token": "BNB"
-    },
-    "OPBNB": {
-        "rpc_url": OPBNB_RPC_URL,
-        "explorer_api": "https://api-opbnb.bscscan.com/api",
-        "api_key": os.getenv("BSCSCAN_API_KEY"),
-        "chain_id": 204,
-        "name": "opBNB Mainnet",
-        "native_token": "BNB"
-    },
-    "ETH": {
-        "rpc_url": ETH_MAINNET_RPC_URL,
-        "explorer_api": "https://api.etherscan.io/v2/api",
-        "api_key": os.getenv("ETHERSCAN_API_KEY"),
-        "chain_id": 1,
-        "name": "Ethereum Mainnet",
-        "native_token": "ETH"
-    }
-}
+# Network constants
+CHAIN_ID = 204
+NETWORK_NAME = "opBNB Mainnet"
+NATIVE_TOKEN = "BNB"
+EXPLORER_API_URL = "https://api-opbnb.bscscan.com/api"
 
-# Active network configuration
-CURRENT_NETWORK = NETWORK_CONFIG.get(ACTIVE_NETWORK, NETWORK_CONFIG["BSC"])
-MAINNET_RPC_URL = CURRENT_NETWORK["rpc_url"]
-EXPLORER_API_URL = CURRENT_NETWORK["explorer_api"]
-EXPLORER_API_KEY = CURRENT_NETWORK["api_key"]
-CHAIN_ID = CURRENT_NETWORK["chain_id"]
-
-# Legacy compatibility (for existing code)
-ETHERSCAN_API_KEY = EXPLORER_API_KEY
+# Aliases for backward compatibility
+MAINNET_RPC_URL = OPBNB_RPC_URL
+EXPLORER_API_KEY = OPBNB_API_KEY
 
 # ============================================================
 # DIRECTORY CONFIGURATION
@@ -95,10 +62,10 @@ EARLY_STOPPING_ROUNDS = 10
 # DATA SAMPLING CONFIGURATION
 # ============================================================
 
-# Data Sampling Configuration
-START_BLOCK = int(os.getenv("START_BLOCK", 35000000))
-END_BLOCK = os.getenv("END_BLOCK", "latest")
-MAX_ADDRESSES = int(os.getenv("MAX_ADDRESSES", 1000))
+# Snapshot Configuration for Recent Transactions
+SNAPSHOT_MODE = os.getenv("SNAPSHOT_MODE", "recent_blocks")
+TARGET_TX_COUNT = int(os.getenv("TARGET_TX_COUNT", 5000))
+MAX_BLOCKS_TO_SCAN = int(os.getenv("MAX_BLOCKS_TO_SCAN", 500))
 
 # ============================================================
 # API RATE LIMITING
@@ -124,25 +91,14 @@ N_SPLITS_CV = 5
 LOG_TRANSFORM_FEATURES = ["value_eth", "gas_price", "gas_used"]
 
 # ============================================================
-# SCAM ADDRESS SOURCES (Network-specific)
+# SCAM ADDRESS SOURCES (opBNB-specific)
 # ============================================================
 
-# Network-specific scam sources
-SCAM_ADDRESS_SOURCES = {
-    "BSC": [
-        "https://api.bscscan.com/api?module=account&action=tokentx&apikey=" + str(EXPLORER_API_KEY or ""),
-    ],
-    "OPBNB": [
-        "https://api-opbnb.bscscan.com/api?module=account&action=tokentx&apikey=" + str(EXPLORER_API_KEY or ""),
-    ],
-    "ETH": [
-        f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=tokentx&apikey=" + str(EXPLORER_API_KEY or ""),
-        "https://xblock.pro/api/phishing-addresses",
-    ]
-}
-
-# Active scam sources
-ACTIVE_SCAM_SOURCES = SCAM_ADDRESS_SOURCES.get(ACTIVE_NETWORK, SCAM_ADDRESS_SOURCES["BSC"])
+# opBNB scam address sources
+SCAM_ADDRESS_SOURCES = [
+    f"https://api-opbnb.bscscan.com/api?module=account&action=tokentx&apikey={OPBNB_API_KEY}",
+    "https://chainabuse.com/api/scams?chain=opbnb",  # Community-reported scams
+]
 
 # ============================================================
 # LOGGING CONFIGURATION
@@ -155,15 +111,18 @@ LOG_LEVEL = "INFO"
 def validate_config():
     """Validate that required configuration is present."""
     if not MAINNET_RPC_URL:
-        raise ValueError(f"RPC URL not set for {ACTIVE_NETWORK} in .env file")
+        raise ValueError("opBNB RPC URL not set in .env file (OPBNB_RPC_URL)")
     if not EXPLORER_API_KEY:
-        raise ValueError(f"API KEY not set for {ACTIVE_NETWORK} in .env file")
+        raise ValueError("opBNB API KEY not set in .env file (OPBNB_API_KEY)")
     
     print("✅ Configuration validated successfully")
-    print(f"   - Active Network: {CURRENT_NETWORK['name']} (Chain ID: {CHAIN_ID})")
-    print(f"   - Native Token: {CURRENT_NETWORK['native_token']}")
+    print(f"   - Network: {NETWORK_NAME} (Chain ID: {CHAIN_ID})")
+    print(f"   - Native Token: {NATIVE_TOKEN}")
     print(f"   - RPC URL: {MAINNET_RPC_URL[:50]}...")
     print(f"   - Explorer API: {EXPLORER_API_URL}")
+    print(f"   - Snapshot Mode: {SNAPSHOT_MODE}")
+    print(f"   - Target TX Count: {TARGET_TX_COUNT:,}")
+    print(f"   - Max Blocks to Scan: {MAX_BLOCKS_TO_SCAN:,}")
     print(f"   - Data directory: {DATA_DIR}")
     print(f"   - Model directory: {MODEL_DIR}")
     print(f"   - Random state: {RANDOM_STATE}")

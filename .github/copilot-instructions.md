@@ -1,13 +1,15 @@
-# Ethereum Fraud Detection System - AI Agent Guide
+# opBNB/BSC Fraud Detection System - AI Agent Guide
 
 ## 🎯 Project Mission
-Building an **end-to-end ML pipeline** for detecting fraudulent/scam transactions on Ethereum Mainnet using **XGBoost** with **SHAP explainability** and **Network Graph Analysis**. This is an academic research project (skripsi) requiring reproducibility, documentation, and scientific rigor.
+Building an **end-to-end ML pipeline** for detecting fraudulent/scam transactions on **opBNB Mainnet** (BNB Smart Chain Layer 2) using **XGBoost** with **SHAP explainability** and **Network Graph Analysis**. This is an academic research project (skripsi) requiring reproducibility, documentation, and scientific rigor.
+
+**Network Focus:** opBNB Mainnet (Chain ID: 204) - Layer 2 solution with lower gas fees and higher throughput than Ethereum, ideal for large-scale fraud detection analysis.
 
 ## 🏗️ Architecture Overview
 
 ### Data Pipeline Flow
 ```
-Ethereum Mainnet (Alchemy/Etherscan) 
+opBNB Mainnet (Public RPC / BscScan API) 
   → Raw Transactions (data/raw/) 
   → Feature Engineering (temporal, gas, account behavior, network graph)
   → Imbalance Handling (ADASYN/SMOTE)
@@ -17,7 +19,7 @@ Ethereum Mainnet (Alchemy/Etherscan)
 ```
 
 ### Core Components
-- **`src/fetch_transactions.py`**: Web3.py + Etherscan API integration for Ethereum Mainnet
+- **`src/fetch_transactions.py`**: Web3.py + BscScan API integration for opBNB/BSC Mainnet
 - **`src/feature_engineering.py`**: Transform raw txs → 15+ numerical features (gas ratios, temporal patterns, account metrics)
 - **`src/network_graph.py`**: NetworkX-based graph analysis (centrality, clustering, shortest paths)
 - **`src/imbalance_handler.py`**: ADASYN oversampling (fraud class is minority ~1-5%)
@@ -34,28 +36,34 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-MAINNET_RPC_URL = os.getenv("MAINNET_RPC_URL")  # Alchemy/Infura mainnet URL
-ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
+
+# Network configuration (BSC, OPBNB, or ETH)
+ACTIVE_NETWORK = os.getenv("ACTIVE_NETWORK", "OPBNB").upper()
+
+# For opBNB (recommended)
+OPBNB_RPC_URL = os.getenv("OPBNB_RPC_URL")  # https://opbnb-mainnet-rpc.bnbchain.org
+BSCSCAN_API_KEY = os.getenv("BSCSCAN_API_KEY")  # Works for both BSC and opBNB
 ```
 
-### Web3.py Transaction Fetching (Mainnet)
-Use batch requests with rate limit handling (Etherscan: max 5 req/sec):
+### Web3.py Transaction Fetching (opBNB/BSC)
+Use batch requests with rate limit handling (BscScan: max 5 req/sec):
 ```python
 from web3 import Web3
 import time
 import requests
 import logging
 
-w3 = Web3(Web3.HTTPProvider(MAINNET_RPC_URL))
+# Connect to opBNB
+w3 = Web3(Web3.HTTPProvider(OPBNB_RPC_URL))
 
 def fetch_tx_batch(address, start_block, end_block):
     """Fetch with exponential backoff on rate limit"""
     try:
-        # Etherscan API V2 requires chainid parameter (1 for Ethereum Mainnet)
+        # BscScan API for opBNB (Chain ID: 204)
         response = requests.get(
-            f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist"
+            f"https://api-opbnb.bscscan.com/api?module=account&action=txlist"
             f"&address={address}&startblock={start_block}&endblock={end_block}"
-            f"&apikey={ETHERSCAN_API_KEY}"
+            f"&apikey={BSCSCAN_API_KEY}"
         )
         if response.status_code == 429:
             time.sleep(0.2)  # Rate limit backoff
@@ -294,19 +302,20 @@ Ethereum gas prices fluctuate wildly. Always normalize by block median:
 df['gas_price_ratio'] = df['gasPrice'] / df.groupby('blockNumber')['gasPrice'].transform('median')
 ```
 
-### Phishing Address Labeling (Mainnet)
+### Phishing Address Labeling (opBNB/BSC)
 Pull known scam addresses from:
-- Etherscan labeled addresses API: `https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={scam_address}`
-- XBlock Phishing dataset (https://xblock.pro)
-- EtherScamDB (backup source)
-- Chainabuse.com reports
+- BscScan labeled addresses API: `https://api-opbnb.bscscan.com/api` or `https://api.bscscan.com/api`
+- ChainAbuse BSC/BNB reports (https://chainabuse.com)
+- Community-reported scam addresses on BscScan
+- CertiK security alerts for BSC ecosystem
 
 Merge labels with `pd.merge(df, scam_addresses, left_on='to', right_on='address')`
 
-**IMPORTANT**: Mainnet has significantly more data than testnet. Consider:
-- Sampling strategies (by time window or address clusters)
-- Using recent blocks (last 6 months) for manageable dataset size
+**IMPORTANT**: opBNB has significantly more throughput than Ethereum. Consider:
+- Sampling strategies (by time window or address clusters)  
+- Using recent blocks (last 3-6 months) for manageable dataset size
 - Caching aggressively to avoid re-fetching
+- opBNB blocks are generated every ~1 second (vs Ethereum's 12 seconds)
 
 ## 📊 Output Requirements (for Thesis)
 
