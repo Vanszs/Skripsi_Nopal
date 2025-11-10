@@ -1,0 +1,48 @@
+feature,importance
+ ERC20_most_rec_token_type,0.33404952
+Time Diff between first and last (Mins),0.13848463
+ ERC20 most sent token type,0.04980468
+ Total ERC20 tnxs,0.047779314
+ ERC20 uniq rec addr,0.03438604
+Number of Created Contracts,0.0340803
+total transactions (including tnx to create contract,0.025098557
+min val sent,0.023100547
+avg val received,0.022060242
+Unique Received From Addresses,0.02159109
+ ERC20 uniq sent addr,0.020847807
+total ether received,0.019212939
+ ERC20 uniq sent token name,0.017933177
+ ERC20 min val sent,0.01757496
+ ERC20 total ether sent,0.017204402
+Avg min between received tnx,0.01598144
+total ether balance,0.0152013125
+Received Tnx,0.013996413
+total Ether sent,0.013861007
+ ERC20 total Ether received,0.012689063
+ ERC20 max val rec,0.012499022
+min value received,0.011012017
+ ERC20 min val rec,0.009553346
+ ERC20 uniq rec contract addr,0.0089280745
+ ERC20 avg val rec,0.0085231215
+avg val sent,0.00843125
+ ERC20 avg val sent,0.007916103
+Sent tnx,0.0069123004
+max val sent,0.0062949783
+ ERC20 max val sent,0.0059573804
+ ERC20 uniq rec token name,0.005540024
+Unique Sent To Addresses,0.005128304
+max value received ,0.0048612305
+Avg min between sent tnx,0.0035054302
+min value sent to contract,0.0
+max val sent to contract,0.0
+avg value sent to contract,0.0
+ ERC20 total Ether sent contract,0.0
+total ether sent contracts,0.0
+ ERC20 avg time between sent tnx,0.0
+ ERC20 uniq sent addr.1,0.0
+ ERC20 avg time between contract tnx,0.0
+ ERC20 avg time between rec tnx,0.0
+ ERC20 avg time between rec 2 tnx,0.0
+ ERC20 avg val sent contract,0.0
+ ERC20 min val sent contract,0.0
+ ERC20 max val sent contract,0.0

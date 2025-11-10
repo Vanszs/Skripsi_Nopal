@@ -1,0 +1,186 @@
+# Fraud Detection Patterns for opBNB
+# Based on known wallet drainer and scam patterns from research & ChainAbuse
+
+version: "1.0"
+last_updated: "2025-11-09"
+
+# Known Scam Addresses (from ChainAbuse, BscScan labels, security reports)
+known_scam_addresses:
+  - address: "0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001"
+    type: "system_address"
+    risk_level: "low"
+    note: "opBNB system address - not actual scam"
+  
+  - address: "0x000000000000000000000000000000000000dead"
+    type: "burn_address"
+    risk_level: "low"
+  
+  # Add real scam addresses from ChainAbuse API or BscScan
+  # Example format:
+  # - address: "0x..."
+  #   type: "phishing|drainer|rugpull|ponzi"
+  #   risk_level: "high|medium|low"
+  #   reported_date: "2025-11-01"
+  #   source: "chainabuse|bscscan|manual"
+
+# Wallet Drainer Patterns (5 types)
+drainer_patterns:
+  burst_draining:
+    enabled: true
+    description: "Multiple transactions in rapid succession (>5 tx within 60 seconds)"
+    threshold:
+      tx_count: 5
+      time_window_seconds: 60
+    weight: 0.3
+    
+  high_value_low_gas:
+    enabled: true
+    description: "High-value transfers with suspiciously low gas (profit maximization)"
+    threshold:
+      min_value_eth: 0.1
+      max_gas_price_gwei: 1
+      value_to_gas_ratio: 1000
+    weight: 0.25
+    
+  sequential_transfers:
+    enabled: true
+    description: "Funds distributed to many different addresses (laundering pattern)"
+    threshold:
+      unique_receiver_ratio: 0.8  # 80%+ different recipients
+      min_tx_count: 10
+    weight: 0.2
+    
+  approval_scam:
+    enabled: true
+    description: "Zero-value approval followed by high-value transfer"
+    threshold:
+      approval_value: 0
+      following_tx_value_min: 0.01
+      time_window_seconds: 300  # Within 5 minutes
+    weight: 0.15
+    
+  nonce_manipulation:
+    enabled: true
+    description: "Large nonce jumps indicating transaction ordering manipulation"
+    threshold:
+      nonce_jump: 5
+      time_window_seconds: 600
+    weight: 0.1
+
+# Anomaly Thresholds (IsolationForest-style heuristics)
+anomaly_thresholds:
+  value_outlier:
+    enabled: true
+    description: "Transaction value significantly higher than sender's historical average"
+    method: "zscore"
+    threshold: 3.0  # 3 standard deviations
+    
+  gas_price_outlier:
+    enabled: true
+    description: "Gas price abnormally high or low"
+    method: "iqr"
+    multiplier: 1.5
+    
+  time_outlier:
+    enabled: true
+    description: "Transaction time unusual for sender's pattern"
+    method: "isolation_forest"
+    contamination: 0.05
+    
+  counterparty_diversity:
+    enabled: true
+    description: "Sudden change in transaction partner diversity"
+    threshold:
+      entropy_change: 0.5
+      window_size: 100
+
+# Risk Scoring Weights
+risk_scoring:
+  known_scam_address: 1.0      # Definitive fraud
+  drainer_pattern_match: 0.6   # Strong indicator
+  anomaly_score: 0.3           # Moderate indicator
+  network_centrality: 0.1      # Weak indicator
+
+# Model Training Strategy (for thesis)
+training_strategy:
+  approach: "semi_supervised"
+  description: |
+    Since we lack labeled ground truth data, we use:
+    1. Rule-based labeling (this YAML file)
+    2. Anomaly detection (Isolation Forest) for unsupervised baseline
+    3. Active learning: manually label high-confidence predictions
+    4. Transfer learning: use Ethereum fraud datasets if available
+  
+  synthetic_label_generation:
+    method: "weighted_voting"
+    min_confidence: 0.7  # Only label if confidence > 70%
+    sources:
+      - known_addresses: 1.0
+      - drainer_patterns: 0.6
+      - anomaly_detection: 0.3
+  
+  validation:
+    method: "time_series_split"
+    test_period: "last_20_percent"
+    cv_folds: 5
+
+# Feature Engineering Priorities
+feature_priorities:
+  critical_features:
+    - suspected_drainer
+    - sender_drainer_ratio
+    - burst_activity_flag
+    - value_to_gas_ratio
+    - counterparty_entropy
+  
+  important_features:
+    - log_value
+    - gas_efficiency
+    - sender_unique_receivers
+    - time_since_last_tx
+    - is_weekend
+  
+  supplementary_features:
+    - hour_of_day
+    - day_of_week
+    - sender_tx_count
+    - receiver_tx_count
+
+# Data Collection Recommendations
+data_collection:
+  preferred_sources:
+    - name: "ChainAbuse API"
+      url: "https://www.chainabuse.com/api"
+      auth_required: false
+      rate_limit: "100 req/day"
+      
+    - name: "BscScan Labeled Addresses"
+      url: "https://api.bscscan.com/api?module=account&action=txlist"
+      auth_required: true
+      rate_limit: "5 req/sec"
+      
+    - name: "CertiK Security Alerts"
+      url: "https://www.certik.com/projects"
+      auth_required: false
+      manual_scraping: true
+      
+  minimum_labeled_samples:
+    fraud: 100
+    normal: 500
+    note: "For reliable supervised learning - current 5k snapshot insufficient"
+
+# Thesis Notes
+thesis_context:
+  limitation_acknowledged: true
+  statement: |
+    "Due to the real-time nature of blockchain data and limited availability 
+    of ground-truth fraud labels, this research employs a semi-supervised 
+    learning approach combining rule-based pattern detection with anomaly 
+    detection algorithms. Future work should incorporate manually validated 
+    fraud cases from blockchain security firms."
+  
+  alternative_approaches:
+    - "Transfer learning from Ethereum fraud datasets"
+    - "Active learning with expert labeling"
+    - "Collaboration with security firms (CertiK, PeckShield)"
+    - "Community-sourced fraud reports (ChainAbuse)"

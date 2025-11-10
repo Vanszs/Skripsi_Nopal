@@ -1,0 +1,12 @@
+current_snapshot_size: 5000
+generated_at: '2025-11-09T12:37:20.372441'
+issue: No ground truth labels available
+next_steps:
+- Download Ethereum fraud dataset from Kaggle
+- Collect real BSC/opBNB scam addresses from ChainAbuse
+- Manual label 100+ high-confidence fraud cases
+- Train Isolation Forest for unsupervised baseline
+- Use YAML patterns for rule-based detection
+recommendation: Semi-supervised learning + transfer learning
+suspected_drainer_count: 1190
+synthetic_fraud_count: 315
